@@ -1,8 +1,9 @@
 plugins {
     id 'java-library'
+    id 'eclipse'
     id 'maven-publish'
     id 'checkstyle'
-    id 'com.github.johnrengelman.shadow' version '7.1.2'
+    id 'com.gradleup.shadow' version '8.3.5'
 }
 
 version = System.getenv('GITHUB_VERSION') ?: '1.19.4'
@@ -14,12 +15,10 @@ java.sourceCompatibility = JavaVersion.VERSION_11
 repositories {
     mavenLocal()
     mavenCentral()
-
     maven {
         name = 'spigot'
         url = uri('https://hub.spigotmc.org/nexus/content/repositories/snapshots/')
     }
-
     maven {
         name = 'onarandombox'
         url = uri('https://repo.onarandombox.com/content/groups/public/')
@@ -27,20 +26,14 @@ repositories {
 }
 
 dependencies {
-    // Spigot
     implementation('org.bukkit:bukkit:1.13.2-R0.1-SNAPSHOT') {
         exclude group: 'junit', module: 'junit'
     }
-
-    // Core
     implementation 'com.onarandombox.multiversecore:Multiverse-Core:4.2.2'
-
-    // Utils
     api('com.dumptruckman.minecraft:Logging:1.1.1') {
         exclude group: 'org.bukkit', module: 'bukkit'
     }
 }
-
 
 java {
     withSourcesJar()
@@ -55,10 +48,9 @@ tasks.withType(Javadoc).configureEach {
     options.encoding = 'UTF-8'
 }
 
-
 configurations {
     [apiElements, runtimeElements].each {
-        it.outgoing.artifacts.removeIf { it.buildDependencies.getDependencies(null).contains(jar) }
+        it.outgoing.artifacts.removeIf { a -> a.buildDependencies.getDependencies(null).contains(jar) }
         it.outgoing.artifact(shadowJar)
     }
 }
@@ -71,54 +63,44 @@ publishing {
     }
     repositories {
         maven {
-            name = "GitHubPackages"
-            url = "https://maven.pkg.github.com/Multiverse/Multiverse-SignPortals"
+            name = 'GitHubPackages'
+            url = 'https://maven.pkg.github.com/Multiverse/Multiverse-SignPortals'
             credentials {
-                username = System.getenv("GITHUB_ACTOR")
-                password = System.getenv("GITHUB_TOKEN")
+                username = System.getenv('GITHUB_ACTOR')
+                password = System.getenv('GITHUB_TOKEN')
             }
         }
     }
 }
 
-
 processResources {
     def props = [version: "${project.version}"]
     inputs.properties props
-    filteringCharset 'UTF-8'
+    filteringCharset = 'UTF-8'
     filesMatching('plugin.yml') {
         expand props
     }
-
-    // This task should never be skipped. The tests depend on this having been run but we want the new version number
-    // that is created after tests are run and before we run again to publish.
     outputs.upToDateWhen { false }
 }
 
-
 checkstyle {
     toolVersion = '6.1.1'
-    configFile file('config/mv_checks.xml')
+    configFile = file('config/mv_checks.xml')
     ignoreFailures = true
 }
-
 
 javadoc {
     source = sourceSets.main.allJava
     classpath = configurations.compileClasspath
 }
 
-
-project.configurations.api.canBeResolved = true
-
 shadowJar {
     relocate 'com.dumptruckman.minecraft.util.Logging', 'com.onarandombox.MultiverseSignPortals.util.MVSPLogging'
     relocate 'com.dumptruckman.minecraft.util.DebugLog', 'com.onarandombox.MultiverseSignPortals.util.DebugFileLogger'
-
-    configurations = [project.configurations.api]
-
-    archiveFileName = "$baseName-$version.$extension"
+    configurations = [project.configurations.compileClasspath]
+    archiveFileName = "${project.name}-${project.version}.jar"
 }
 
 build.dependsOn shadowJar
 jar.enabled = false
+
